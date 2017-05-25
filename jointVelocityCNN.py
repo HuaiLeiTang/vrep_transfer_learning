@@ -9,19 +9,25 @@ from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 import h5py
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
-batch_size = 32
+batch_size = 1
 num_joints = 6
-epochs = 30
+epochs = 100
 data_augmentation = False
 
 # load data and resize, using same data for test set, indicate number of datapoints
-f=h5py.File("image100epochs50steps64res.hdf5","r")
-totalDatapoints = 5000
+f=h5py.File("datasets/singleEpochNoOffset.hdf5","r")
+totalDatapoints = 50
 
+# temporarily using training set as test set as well
 x_train=f["images"]
 x_train=np.resize(x_train,[totalDatapoints,64,64,3]) #saved data is flattened
-y_train=f["joint_vel"]
+# standardize joint velocities
+scaler = StandardScaler()
+scaler = scaler.fit(f["joint_vel"])
+standardized = scaler.transform(f["joint_vel"])
+y_train=standardized
 x_test=x_train
 y_test=y_train
 print('x_train shape:', x_train.shape)
@@ -54,15 +60,15 @@ model.add(Dense(512))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_joints))
-#model.add(Activation('softmax'))
 
 # initiate RMSprop optimizer
 opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
+adam = keras.optimizers.adam(lr=0.001)
 
 # Let's train the model using RMSprop
 model.compile(loss='mean_squared_error',
-              optimizer=opt,
-              metrics=['accuracy'])
+              optimizer=adam,
+              metrics=['mae'])
 
 # Simple normalization of dividing all values by 255
 x_train = x_train.astype('float32')
@@ -104,4 +110,4 @@ else:
                         validation_data=(x_test, y_test))
 
 # save model
-model.save('model_100epochs50steps64res.h5')
+model.save('trained_models/model_singleEpochNoRandomOffsets.h5')

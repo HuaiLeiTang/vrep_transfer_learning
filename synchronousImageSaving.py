@@ -49,9 +49,9 @@ if clientID!=-1:
     print resolution
 
     # Initialize data file
-    filename = "imageDataset100epochs50steps.hdf5"
+    filename = "datasets/singleEpochNoOffset.hdf5"
     f = h5py.File(filename, "w")
-    numberOfEpochs = 100
+    numberOfEpochs = 1
     epochCounter = 0
     numberOfSteps = 50  # set number of images to save
     totalDatapoints = numberOfEpochs*numberOfSteps

@@ -17,6 +17,7 @@ import sys
 import h5py
 import numpy as np
 from keras.models import load_model
+from sklearn.preprocessing import StandardScaler
 
 print ('Program started')
 vrep.simxFinish(-1) # just in case, close all opened connections
@@ -31,7 +32,11 @@ if clientID!=-1:
     vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
 
     # Load keras model
-    model = load_model("model_100epochs50steps64res.h5")
+    #model = load_model("trained_models/model_100epochs50steps64res.h5")
+    model = load_model("trained_models/model_singleEpochNoRandomOffsets.h5")
+
+    # Open file to get the standardized range
+    file = h5py.File("datasets/singleEpochNoOffset.hdf5","r")
 
     # Get joint handles
     jhList = [-1, -1, -1, -1, -1, -1]
@@ -75,10 +80,18 @@ if clientID!=-1:
         # 1. Obtain image from vision sensor
         err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
         img = np.resize(image,[1,64,64,3]) # resize into proper shape for input to neural network
+        img = img.astype('float32')
+        img = img/255
 
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector
         print "Joint velocities: ", jointvel
+
+        ## Invert joint velocities
+        scaler = StandardScaler()
+        scaler = scaler.fit(file["joint_vel"])
+        jointvel = scaler.inverse_transform(jointvel)
+        print "Joint velocities after inverting: ", jointvel
 
         # 3. Apply joint velocities to arm in V-REP
         # using random joint velocities for testing now
