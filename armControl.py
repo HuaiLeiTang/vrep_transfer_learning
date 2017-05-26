@@ -33,7 +33,7 @@ if clientID!=-1:
 
     # Load keras model
     #model = load_model("trained_models/model_100epochs50steps64res.h5")
-    model = load_model("trained_models/model_singleEpochNoRandomOffsets.h5")
+    model = load_model("trained_models/model_singleEpochNoRandomOffsets2.h5")
 
     # Open file to get the standardized range
     file = h5py.File("datasets/singleEpochNoOffset.hdf5","r")
@@ -77,11 +77,12 @@ if clientID!=-1:
     numberOfInputs = 50
     for i in range(numberOfInputs):
         print "Step ", i
+        raw_input("Press Enter to continue...")
         # 1. Obtain image from vision sensor
         err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
         img = np.resize(image,[1,64,64,3]) # resize into proper shape for input to neural network
         img = img.astype('float32')
-        img = img/255
+        img = img/255 # normalize input image
 
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector

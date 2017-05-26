@@ -1,5 +1,8 @@
 # Training a CNN with o 80x64x64x3 images from vrep
 # Checking if it can overfit well. Test set will be used
+# MODEL IS TRAINED WITH STANDARDIZED OUTPUT AND NORMALIZED INPUT
+# THEREFORE, AT PREDICT TIME, INPUT NEEDS TO BE NORMALIZED
+# AND OUTPUT HAS TO BE INVERTED
 
 from __future__ import print_function
 import keras
@@ -12,14 +15,14 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-batch_size = 1
+batch_size = 32
 num_joints = 6
-epochs = 3
+epochs = 300
 data_augmentation = False
 
 # load data and resize, using same data for test set, indicate number of datapoints
-f=h5py.File("datasets/singleEpochNoOffset.hdf5","r")
-totalDatapoints = 50
+f=h5py.File("datasets/image100epochs50steps64res.hdf5","r")
+totalDatapoints = 5000
 
 # temporarily using training set as test set as well
 x_train=f["images"]
@@ -34,10 +37,6 @@ y_test=y_train
 print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
 print(x_test.shape[0], 'test samples')
-
-# Convert class vectors to binary class matrices.
-# y_train = keras.utils.to_categorical(y_train, num_classes)
-# y_test = keras.utils.to_categorical(y_test, num_classes)
 
 model = Sequential()
 
@@ -60,6 +59,9 @@ model.add(Flatten())
 model.add(Dense(512))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
+# model.add(Dense(256))
+# model.add(Activation('relu'))
+# model.add(Dropout(0.5))
 model.add(Dense(num_joints))
 
 # initiate RMSprop optimizer
@@ -111,7 +113,7 @@ else:
                         validation_data=(x_test, y_test))
 
 # save model and history
-model_path = 'trained_models/model_singleEpochNoRandomOffsets.h5'
+model_path = 'trained_models/model_100epochs50steps64res2.h5'
 model.save(model_path)
 saved_model = h5py.File(model_path,"r+")
 for key in history.history.keys():
