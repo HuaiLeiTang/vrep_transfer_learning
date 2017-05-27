@@ -16,6 +16,10 @@ def displayInfo(filename,pos):
     dset3=file["joint_vel"]
     print "Joint pos: ",dset2[pos]
     print "Joint vel: ",dset3[pos]
+    print "Joint vel sum: ",np.sum(np.absolute(dset3[pos]))
+    joint_vel = dset3[pos]/np.sum(np.absolute(dset3[pos]))
+    print "Transformed joint vel: ", joint_vel
+    print "Sum: ", np.sum(np.absolute(joint_vel))
     file.close()
     return
 

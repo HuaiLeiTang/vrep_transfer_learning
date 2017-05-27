@@ -49,12 +49,12 @@ if clientID!=-1:
     print resolution
 
     # Initialize data file
-    filename = "datasets/singleEpochNoOffset.hdf5"
+    filename = "datasets/100iterations100steps64res_unitJointVel_validation.hdf5"
     f = h5py.File(filename, "w")
-    numberOfEpochs = 1
-    epochCounter = 0
-    numberOfSteps = 50  # set number of images to save
-    totalDatapoints = numberOfEpochs*numberOfSteps
+    numberOfIterations = 10
+    iterationCounter = 0
+    numberOfSteps = 100  # number of steps per epoch
+    totalDatapoints = numberOfIterations * numberOfSteps
     sizeOfImage = resolution[0] * resolution[1] * 3  # number of pixels multiplied by 3 channels (RGB)
     dset1 = f.create_dataset("images", (totalDatapoints, sizeOfImage), dtype="uint")
     dset2 = f.create_dataset("joint_pos", (totalDatapoints, 6), dtype="float")
@@ -68,15 +68,15 @@ if clientID!=-1:
         returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
 
     # Iterate over all inverse kinematic steps:
-    for i in range(numberOfSteps*numberOfEpochs):
+    for i in range(numberOfSteps*numberOfIterations):
         if (i % numberOfSteps == 0):
             returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
             while (signalValue == 0):
                 vrep.simxSynchronousTrigger(clientID)
                 vrep.simxGetPingTime(clientID)
                 returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
-            epochCounter += 1
-        print "Epoch ", epochCounter
+            iterationCounter += 1
+        print "Iteration ", iterationCounter
         print "Step ", i
         err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
         img = np.array(image, dtype=np.uint8)
@@ -98,9 +98,14 @@ if clientID!=-1:
     vrep.simxFinish(clientID)
 
     # calculate joint velocities excluding final image
-    for k in range(numberOfEpochs):
+    for k in range(numberOfIterations):
         for i in range(numberOfSteps-1):
-            dset3[k*numberOfSteps + i] = dset2[k*numberOfSteps + i+1]-dset2[k*numberOfSteps + i]
+            jointvel = dset2[k*numberOfSteps + i+1]-dset2[k*numberOfSteps + i]
+            abs_sum = np.sum(np.absolute(jointvel))
+            if abs_sum==0:
+                dset3[k * numberOfSteps + i] = np.zeros(6)
+            else:
+                dset3[k * numberOfSteps + i] = jointvel/abs_sum/10
 
         # set final velocity to zeros
         dset3[(k+1)*numberOfSteps - 1] = np.zeros(6)

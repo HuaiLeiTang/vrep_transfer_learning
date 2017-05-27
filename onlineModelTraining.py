@@ -1,5 +1,13 @@
-# This is a setup to control the Mico arm in V-REP
-# Obtain image from V-REP -> Pass into neural network -> Obtain joint velocities -> Apply to arm in V-REP
+# This is a setup to train the model by fitting on the image and path given by V-REP,
+# BUT moves the arm according to the model's prediction
+# At every step, the inverse kinematics path is recalculated. This will help the model correct its mistakes
+# even when it goes off path into an unknown region.
+# This is basically an online machine learning setting. One image and one label is given at each step.
+# Since this is expected to be much slower, this training step should be seen as a finetuning step after
+# the model is trained on a larger dataset of images.
+# Sequence of events:
+# Obtain image and path from V-REP -> Pass image into neural network -> Predict joint velocities
+# -> Apply predicted velocities to arm in V-REP -> Fit model using image and path from V-REP -> Loop
 
 try:
     import vrep
@@ -16,6 +24,7 @@ import time
 import sys
 import h5py
 import numpy as np
+import keras
 from keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 
@@ -32,9 +41,13 @@ if clientID!=-1:
     vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
 
     # Load keras model
-    model = load_model("trained_models/onlineModelTest.h5")
-    #model = load_model("trained_models/newModelTest.h5")
+    model = load_model("trained_models/newModelTest.h5")
     #model = load_model("trained_models/model_singleEpochNoRandomOffsets2.h5")
+    # initiate adam optimizer
+    adam = keras.optimizers.adam(lr=0.001)
+    model.compile(loss='mean_squared_error',
+                  optimizer=adam,
+                  metrics=['mae'])  # displayed loss is mean squared error
 
     # Open file to get the standardized range
     #file = h5py.File("datasets/image100epochs50steps64res.hdf5")
@@ -74,19 +87,32 @@ if clientID!=-1:
         returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
 
     # Iterate over number of steps in training data generated
-    numberOfInputs = 500
+    numberOfInputs = 5000
     for i in range(numberOfInputs):
         print "Step ", i
         #raw_input("Press Enter to continue...")
-        # 1. Obtain image from vision sensor
+        # 1. Obtain image from vision sensor and next path position from Lua script
         err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
         img = np.resize(image,[1,64,64,3]) # resize into proper shape for input to neural network
         img = img.astype('float32')
         img = img/255 # normalize input image
 
+        inputInts = []
+        inputFloats = []
+        inputStrings = []
+        inputBuffer = bytearray()
+        err, retInts, nextPathPos, retStrings, retBuffer = vrep.simxCallScriptFunction(clientID, 'Mico',
+                                                                                     vrep.sim_scripttype_childscript,
+                                                                                     'getNextPathPos', inputInts,
+                                                                                     inputFloats, inputStrings,
+                                                                                     inputBuffer,
+                                                                                     vrep.simx_opmode_blocking)
+        if res == vrep.simx_return_ok:
+            print "Next Path Pos: ", nextPathPos
+
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector
-        print "Joint velocities: ", jointvel
+        print "Predicted joint velocities: ", jointvel
         print "Absolute sum: ", np.sum(np.absolute(jointvel))
         stepsize = 1
         jointvel *= stepsize
@@ -103,11 +129,18 @@ if clientID!=-1:
             jointpos[j] = jp
             err = vrep.simxSetJointPosition(clientID, jhList[j], jointpos[j] + jointvel[j], vrep.simx_opmode_oneshot)
 
-        # for j in range(6):
-        #     err = vrep.simxSetJointPosition(clientID,jhList[j],jointpos[j]+jointvel[j],vrep.simx_opmode_oneshot)
-
         err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
         print "Distance to cube: ", distanceToCube
+
+        # 4. Fit model
+        ik_jointvel = nextPathPos - jointpos
+        ik_jointvel = ik_jointvel/np.sum(np.absolute(ik_jointvel))/10
+        ik_jointvel = np.resize(ik_jointvel,(1,6))
+        print "IK Joint velocity: ", ik_jointvel
+        print "Sum: ", np.sum(np.absolute(ik_jointvel))
+        model.fit(img, ik_jointvel,
+                  batch_size=1,
+                  epochs=1)
 
         # trigger next step and wait for communication time
         vrep.simxSynchronousTrigger(clientID)
@@ -123,7 +156,8 @@ if clientID!=-1:
     # Now close the connection to V-REP:
     vrep.simxFinish(clientID)
 
-    # delete model and close h5py file
+    # save updated model delete model and close h5py file
+    model.save("trained_models/onlineModelTest.h5")
     del model
 else:
     print ('Failed connecting to remote API server')
