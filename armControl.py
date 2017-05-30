@@ -113,9 +113,23 @@ if clientID!=-1:
         vrep.simxSynchronousTrigger(clientID)
         vrep.simxGetPingTime(clientID)
 
-    # final distance to cube used as a measurement of how well the neural network learnt
-    err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
-    print "Final distance to cube: ", distanceToCube
+    # obtain performance metrics
+    inputInts = []
+    inputFloats = []
+    inputStrings = []
+    inputBuffer = bytearray()
+    err, minDistStep, minDist, retStrings, retBuffer = vrep.simxCallScriptFunction(clientID, 'Mico',
+                                                                                   vrep.sim_scripttype_childscript,
+                                                                                   'performanceMetrics', inputInts,
+                                                                                   inputFloats, inputStrings,
+                                                                                   inputBuffer,
+                                                                                   vrep.simx_opmode_blocking)
+
+    if res == vrep.simx_return_ok:
+        print "Min distance steps: ", minDistStep
+        print "Min distance: ", minDist
+    ## other performance metrics such as success % can be defined (i.e. % reaching certain min threshold)
+
 
     # stop the simulation:
     vrep.simxStopSimulation(clientID,vrep.simx_opmode_blocking)

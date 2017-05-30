@@ -25,6 +25,9 @@ import sys
 import h5py
 import numpy as np
 import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import Conv2D, MaxPooling2D
 from keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 
@@ -40,9 +43,36 @@ if clientID!=-1:
     # start the simulation:
     vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
 
-    # Load keras model
-    model = load_model("trained_models/newModelTest.h5")
-    #model = load_model("trained_models/model_singleEpochNoRandomOffsets2.h5")
+    # train a model from scratch using the online method
+    inputShape = [64,64,3]
+    num_joints = 6
+    ## Model Start
+    model = Sequential()
+    # 2 conv + max pool layers
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=1,
+                     padding='same', input_shape=inputShape))
+    model.add(Activation('relu'))
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=1,
+                     padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    # 2 conv + max pool layers
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=1,
+                     padding='same'))
+    model.add(Activation('relu'))
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=1,
+                     padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    # Fully connected
+    model.add(Flatten())
+    model.add(Dense(512, kernel_regularizer=keras.regularizers.l2(0.01)))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(num_joints))
+
     # initiate adam optimizer
     adam = keras.optimizers.adam(lr=0.001)
     model.compile(loss='mean_squared_error',
@@ -107,13 +137,12 @@ if clientID!=-1:
                                                                                      inputFloats, inputStrings,
                                                                                      inputBuffer,
                                                                                      vrep.simx_opmode_blocking)
-        if res == vrep.simx_return_ok:
-            print "Next Path Pos: ", nextPathPos
+
 
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector
-        print "Predicted joint velocities: ", jointvel
-        print "Absolute sum: ", np.sum(np.absolute(jointvel))
+        #print "Predicted joint velocities: ", jointvel
+        #print "Absolute sum: ", np.sum(np.absolute(jointvel))
         stepsize = 1
         jointvel *= stepsize
 
@@ -129,15 +158,15 @@ if clientID!=-1:
             jointpos[j] = jp
             err = vrep.simxSetJointPosition(clientID, jhList[j], jointpos[j] + jointvel[j], vrep.simx_opmode_oneshot)
 
-        err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
-        print "Distance to cube: ", distanceToCube
+        #err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
+        #print "Distance to cube: ", distanceToCube
 
         # 4. Fit model
         ik_jointvel = nextPathPos - jointpos
         ik_jointvel = ik_jointvel/np.sum(np.absolute(ik_jointvel))/10
         ik_jointvel = np.resize(ik_jointvel,(1,6))
-        print "IK Joint velocity: ", ik_jointvel
-        print "Sum: ", np.sum(np.absolute(ik_jointvel))
+        #print "IK Joint velocity: ", ik_jointvel
+        #print "Sum: ", np.sum(np.absolute(ik_jointvel))
         model.fit(img, ik_jointvel,
                   batch_size=1,
                   epochs=1)
@@ -146,10 +175,6 @@ if clientID!=-1:
         vrep.simxSynchronousTrigger(clientID)
         vrep.simxGetPingTime(clientID)
 
-    # final distance to cube used as a measurement of how well the neural network learnt
-    err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
-    print "Final distance to cube: ", distanceToCube
-
     # stop the simulation:
     vrep.simxStopSimulation(clientID,vrep.simx_opmode_blocking)
 
@@ -157,7 +182,7 @@ if clientID!=-1:
     vrep.simxFinish(clientID)
 
     # save updated model delete model and close h5py file
-    model.save("trained_models/onlineModelTest.h5")
+    model.save("trained_models/onlineModel_fromScratch.h5")
     del model
 else:
     print ('Failed connecting to remote API server')

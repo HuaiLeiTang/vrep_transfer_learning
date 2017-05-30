@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 batch_size = 1
 num_joints = 6
-epochs = 3
+epochs = 5
 data_augmentation = False
 
 # load data and resize, using same data for test set, indicate number of datapoints
@@ -111,7 +111,7 @@ else:
                         validation_data=(x_test, y_test))
 
 # save model and history
-model_path = 'trained_models/model_singleEpochNoRandomOffsets.h5'
+model_path = 'trained_models/theanoTest.h5'
 model.save(model_path)
 saved_model = h5py.File(model_path,"r+")
 for key in history.history.keys():
