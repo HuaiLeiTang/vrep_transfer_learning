@@ -18,6 +18,7 @@ import h5py
 import numpy as np
 from keras.models import load_model
 from sklearn.preprocessing import StandardScaler
+import imTransform
 
 print ('Program started')
 vrep.simxFinish(-1) # just in case, close all opened connections
@@ -79,8 +80,10 @@ if clientID!=-1:
         print "Step ", i
         #raw_input("Press Enter to continue...")
         # 1. Obtain image from vision sensor
-        err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
-        img = np.resize(image,[1,64,64,3]) # resize into proper shape for input to neural network
+        err, resolution, img = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
+        img = np.array(img)
+        img = imTransform.gammaCorrection(img,gamma=1.0) #applying gamma correction to the image
+        img = np.resize(img,[1,64,64,3]) # resize into proper shape for input to neural network
         img = img.astype('float32')
         img = img/255 # normalize input image
 
@@ -126,8 +129,10 @@ if clientID!=-1:
                                                                                    vrep.simx_opmode_blocking)
 
     if res == vrep.simx_return_ok:
-        print "Min distance steps: ", minDistStep
-        print "Min distance: ", minDist
+        #print "Min distance steps: ", minDistStep
+        #print "Min distance: ", minDist
+        print "Total episodes: ", len(minDist)
+        print "Average min distance: ", np.mean(minDist)
     ## other performance metrics such as success % can be defined (i.e. % reaching certain min threshold)
 
 
