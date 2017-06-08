@@ -1,23 +1,17 @@
-# Training a CNN with o 80x64x64x3 images from vrep
-# Checking if it can overfit well. Test set will be used
-# MODEL IS TRAINED WITH STANDARDIZED OUTPUT AND NORMALIZED INPUT
-# THEREFORE, AT PREDICT TIME, INPUT NEEDS TO BE NORMALIZED
-# AND OUTPUT HAS TO BE INVERTED
-
 from __future__ import print_function
 import keras
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
+from keras.layers.advanced_activations import ELU
 import h5py
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
 batch_size = 64
 num_joints = 6
-epochs = 50
+epochs = 20
 data_augmentation = False
 
 # load train and test sets
@@ -35,33 +29,35 @@ x_test=test_f["images"]
 x_test=np.resize(x_test, [totalTestDatapoints, 64, 64, 3])
 y_test=test_f["joint_vel"]
 
-# print('x_train shape:', x_train.shape)
-# print(x_train.shape[0], 'train samples')
-# print(x_test.shape[0], 'test samples')
 ## Model Start
 model = Sequential()
 # 2 conv + max pool layers
 model.add(Conv2D(filters=16, kernel_size=(3,3), strides=1,
                  padding='same', input_shape=x_train.shape[1:]))
-model.add(Activation('relu'))
+model.add(ELU())
+#model.add(Activation('relu'))
 model.add(Conv2D(filters=16, kernel_size=(3,3), strides=1,
                  padding='same'))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(ELU())
+#model.add(Activation('relu'))
+#model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.25))
 # 2 conv + max pool layers
 model.add(Conv2D(filters=32, kernel_size=(3,3), strides=1,
                  padding='same'))
-model.add(Activation('relu'))
+model.add(ELU())
+#model.add(Activation('relu'))
 model.add(Conv2D(filters=32, kernel_size=(3,3), strides=1,
                  padding='same'))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(ELU())
+#model.add(Activation('relu'))
+#model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.25))
 # Fully connected
 model.add(Flatten())
 model.add(Dense(512,kernel_regularizer=keras.regularizers.l2(0.01)))
-model.add(Activation('relu'))
+model.add(ELU())
+#model.add(Activation('relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_joints))
 
@@ -113,7 +109,7 @@ else:
                         validation_data=(x_test, y_test))
 
 # save model and history
-model_path = 'trained_models/newModelTest.h5'
+model_path = 'trained_models/elu_noMaxPool.h5'
 model.save(model_path)
 saved_model = h5py.File(model_path,"r+")
 for key in history.history.keys():

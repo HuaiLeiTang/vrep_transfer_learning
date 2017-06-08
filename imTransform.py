@@ -7,8 +7,11 @@ def averageBlur(img,kernel_width=5,kernel_height=5):
     return cv2.blur(img,(kernel_width,kernel_height))
 
 def gammaCorrection(img,gamma=1.0):
+    img_shape = img.shape
     img=img.astype('uint8')
+    img=np.resize(img,np.prod([i for i in img_shape]))
     img=adjust_gamma(img,gamma)
+    img=np.resize(img,img_shape)
     return img
 
 def displayAfterGammaCorrection(img,gamma=1.0):

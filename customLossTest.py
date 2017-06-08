@@ -4,6 +4,10 @@ import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import theano.tensor as T
+import keras.backend as K
+
+def custom_mse2(y_true,y_pred):
+    return K.mean(K.square(y_pred - y_true), axis=-1)
 
 def custom_mse(y_true,y_pred):
     return T.mean(T.square(y_pred - y_true), axis=-1)
@@ -43,24 +47,30 @@ def rbf_mmd2(sigma=1,biased=True):
         return mmd2
     return loss
 
+def get_activations(model, layer, X_batch):
+    get_activations = K.function([model.layers[0].input, K.learning_phase()], model.layers[layer].output)
+    activations = get_activations([X_batch,0])
+    return activations
+
 N=50
 data = np.random.normal(0,1,(N,2))
-labels = np.random.normal(5,1,(N,2))
+labels = data + 5
 
 inputs = Input(shape=(2,))
-hiddenlayer1 = Dense(200,kernel_regularizer = keras.regularizers.l2(0.01),activation='relu')(inputs)
-hiddenlayer2 = Dense(200,kernel_regularizer = keras.regularizers.l2(0.01),activation='relu')(hiddenlayer1)
+hiddenlayer1 = Dense(100,kernel_regularizer = keras.regularizers.l2(0.01),activation='relu')(inputs)
+hiddenlayer2 = Dense(100,kernel_regularizer = keras.regularizers.l2(0.01),activation='relu')(hiddenlayer1)
 predictions = Dense(2)(hiddenlayer2)
 
 model = Model(inputs=inputs, outputs=predictions)
-model.compile(optimizer='rmsprop',
+model.compile(optimizer='adam',
               loss=rbf_mmd2(),
               metrics=['mse'])
-model.fit(data, labels, batch_size=4, epochs=30)
+model.fit(data, labels, batch_size=8, epochs=300)
 predicted = model.predict(data)
 
-fig = plt.figure()
-ax = fig.add_subplot(1,1,1)
-ax.scatter(data[:,0],data[:,1],marker="+")
-ax.scatter(labels[:,0],labels[:,1],marker="o")
-ax.scatter(predicted[:,0],predicted[:,1],marker="^")
+plt_x = plt.scatter(data[:,0],data[:,1],marker="+")
+plt_y = plt.scatter(labels[:,0],labels[:,1],marker="o")
+plt_pred = plt.scatter(predicted[:,0],predicted[:,1],marker="^")
+plt.legend((plt_x,plt_y,plt_pred),
+           ('Input','Labels','Predicted'))
+plt.show()

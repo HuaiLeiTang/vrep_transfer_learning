@@ -33,11 +33,13 @@ if clientID!=-1:
     vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
 
     # Load keras model
-    model = load_model("trained_models/onlineModelTest.h5")
     #model = load_model("trained_models/newModelTest.h5")
-    #model = load_model("trained_models/model_singleEpochNoRandomOffsets2.h5")
+    #model = load_model("trained_models/onlineModelTest.h5")
+    #model = load_model("trained_models/onlineModel_fromScratch.h5")
+    model = load_model("trained_models/eluTest.h5")
 
     # Open file to get the standardized range
+    # not used currently since I am no longer standardizing the data
     #file = h5py.File("datasets/image100epochs50steps64res.hdf5")
     #file = h5py.File("datasets/singleEpochNoOffset.hdf5","r")
 
