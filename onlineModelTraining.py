@@ -41,8 +41,8 @@ if clientID!=-1:
     vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
 
     # Load keras model
-    model = load_model("trained_models/newModelTest.h5")
-    #model = load_model("trained_models/model_singleEpochNoRandomOffsets2.h5")
+    model = load_model("trained_models/elu_noMaxPool_21_50.h5")
+
     # initiate adam optimizer
     adam = keras.optimizers.adam(lr=0.001)
     model.compile(loss='mean_squared_error',
@@ -87,7 +87,8 @@ if clientID!=-1:
         returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
 
     # Iterate over number of steps to train for online model
-    numberOfInputs = 5000
+    numberOfInputs = 500
+    path_empty_counter = 0
     for i in range(numberOfInputs):
         print "Step ", i
         #raw_input("Press Enter to continue...")
@@ -109,6 +110,9 @@ if clientID!=-1:
                                                                                      vrep.simx_opmode_blocking)
         if res == vrep.simx_return_ok:
             print "Next Path Pos: ", nextPathPos
+        if len(nextPathPos) != 6:
+            path_empty_counter += 1
+            continue
 
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector
@@ -157,8 +161,11 @@ if clientID!=-1:
     vrep.simxFinish(clientID)
 
     # save updated model delete model and close h5py file
-    model.save("trained_models/onlineModelTest.h5")
+    model.save("trained_models/elu_noMaxPool_online1000steps.h5")
     del model
+
+    #
+    print "No of times path is empty:", path_empty_counter
 else:
     print ('Failed connecting to remote API server')
 print ('Program ended')

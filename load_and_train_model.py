@@ -30,7 +30,7 @@ model = ku.load(model_path)
 
 # Some hyperparameters
 batch_size = 64
-epochs = 50
+epochs = 30
 
 # fit your model
 history = model.fit(x_train, y_train,
