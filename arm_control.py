@@ -36,7 +36,7 @@ if clientID != -1:
     vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
     # Load model
-    model = load_model("trained_models/elu_noMaxPool_online.h5")
+    model = load_model("trained_models/a1_normal_online_mixed_16_64batchsize.h5")
 
     # Get joint handles
     jhList = [-1, -1, -1, -1, -1, -1]
@@ -69,7 +69,7 @@ if clientID != -1:
 
     # Iterate over total steps desired
     current_episode = 0
-    total_episodes = 5
+    total_episodes = 20
     step_counter = 0
     while current_episode < total_episodes+1:
         # obtain current episode
