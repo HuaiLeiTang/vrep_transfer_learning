@@ -1,5 +1,8 @@
 # This is a setup to control the Mico arm in V-REP
-# Obtain image from V-REP -> Pass into neural network -> Obtain joint velocities -> Apply to arm in V-REP
+# 1. Obtain image from V-REP
+# 2. Pass into neural network
+# 3. Obtain joint velocities
+# 4. Apply to arm in V-REP
 
 try:
     import vrep
@@ -12,73 +15,80 @@ except:
     print ('--------------------------------------------------------------')
     print ('')
 
-import time
-import sys
-import h5py
 import numpy as np
 from keras.models import load_model
-from sklearn.preprocessing import StandardScaler
 import imTransform
 
 print ('Program started')
-vrep.simxFinish(-1) # just in case, close all opened connections
-clientID=vrep.simxStart('127.0.0.1',19999,True,True,5000,5) # Connect to V-REP
-if clientID!=-1:
+# just in case, close all opened connections
+vrep.simxFinish(-1)
+
+# Connect to V-REP
+clientID=vrep.simxStart('127.0.0.1',19999,True,True,5000,5)
+
+if clientID != -1:
     print ('Connected to remote API server')
 
     # enable the synchronous mode on the client:
-    vrep.simxSynchronous(clientID,True)
+    vrep.simxSynchronous(clientID, True)
 
     # start the simulation:
-    vrep.simxStartSimulation(clientID,vrep.simx_opmode_oneshot)
+    vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
-    # Load keras model
-    model = load_model("trained_models/elu_noMaxPool_online500steps.h5")
-    #model = load_model("trained_models/elu_noMaxPool_21_50.h5")
-
-    # Open file to get the standardized range
-    # not used currently since I am no longer standardizing the data
-    #file = h5py.File("datasets/image100epochs50steps64res.hdf5")
-    #file = h5py.File("datasets/singleEpochNoOffset.hdf5","r")
+    # Load model
+    model = load_model("trained_models/elu_noMaxPool_online.h5")
 
     # Get joint handles
     jhList = [-1, -1, -1, -1, -1, -1]
     for i in range(6):
         err, jh = vrep.simxGetObjectHandle(clientID, "Mico_joint"+str(i+1), vrep.simx_opmode_blocking)
-        print err
         jhList[i] = jh
-    print "Joints handles: ", jhList
+
+    # Initialize joint position
     jointpos = np.zeros(6)
     for i in range(6):
         err, jp = vrep.simxGetJointPosition(clientID, jhList[i], vrep.simx_opmode_streaming)
         jointpos[i] = jp
-    print jointpos
 
     # Initialize vision sensor
     res, v1 = vrep.simxGetObjectHandle(clientID, "vs1", vrep.simx_opmode_oneshot_wait)
     err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_streaming)
     vrep.simxGetPingTime(clientID)
     err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
-    print resolution
 
-    # Get distance handle
+    # Initialize distance handle
     err, distanceHandle = vrep.simxGetDistanceHandle(clientID,"tipToCube",vrep.simx_opmode_blocking)
     err, distanceToCube = vrep.simxReadDistance(clientID,distanceHandle,vrep.simx_opmode_streaming)
-    print "Initial distance to cube: ", distanceToCube
 
-    #Step while IK movement has not begun
+    # Step while IK movement has not begun
     returnCode, signalValue = vrep.simxGetIntegerSignal(clientID,"ikstart",vrep.simx_opmode_streaming)
-
     while (signalValue==0):
         vrep.simxSynchronousTrigger(clientID)
         vrep.simxGetPingTime(clientID)
         returnCode, signalValue = vrep.simxGetIntegerSignal(clientID, "ikstart", vrep.simx_opmode_streaming)
 
-    # Iterate over number of steps in training data generated
-    numberOfInputs = 500
-    for i in range(numberOfInputs):
-        print "Step ", i
-        #raw_input("Press Enter to continue...")
+    # Iterate over total steps desired
+    current_episode = 0
+    total_episodes = 5
+    step_counter = 0
+    while current_episode < total_episodes+1:
+        # obtain current episode
+        inputInts = []
+        inputFloats = []
+        inputStrings = []
+        inputBuffer = bytearray()
+        err, episode_table, _, _, _ = vrep.simxCallScriptFunction(clientID, 'Mico',
+                                                                  vrep.sim_scripttype_childscript,
+                                                                    'episodeCount', inputInts,
+                                                                  inputFloats, inputStrings,
+                                                                  inputBuffer, vrep.simx_opmode_blocking)
+        if episode_table[0]>current_episode:
+            step_counter = 0
+            print "Episode: ", episode_table[0]
+        current_episode = episode_table[0]
+        step_counter += 1
+
+
         # 1. Obtain image from vision sensor
         err, resolution, img = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
         img = np.array(img)
@@ -89,16 +99,8 @@ if clientID!=-1:
 
         # 2. Pass into neural network to get joint velocities
         jointvel = model.predict(img,batch_size=1)[0] #output is a 2D array of 1X6, access the first variable to get vector
-        print "Joint velocities: ", jointvel
-        print "Absolute sum: ", np.sum(np.absolute(jointvel))
         stepsize = 1
         jointvel *= stepsize
-
-        ## Invert joint velocities
-        # scaler = StandardScaler()
-        # scaler = scaler.fit(file["joint_vel"])
-        # jointvel = scaler.inverse_transform(jointvel)
-        # print "Joint velocities after inverting: ", jointvel
 
         # 3. Apply joint velocities to arm in V-REP
         for j in range(6):
@@ -106,35 +108,37 @@ if clientID!=-1:
             jointpos[j] = jp
             err = vrep.simxSetJointPosition(clientID, jhList[j], jointpos[j] + jointvel[j], vrep.simx_opmode_oneshot)
 
-        # for j in range(6):
-        #     err = vrep.simxSetJointPosition(clientID,jhList[j],jointpos[j]+jointvel[j],vrep.simx_opmode_oneshot)
-
+        # Obtain distance to cube
         err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
+
+        # Print statements
+        print "Step: ", step_counter
+        print "Joint velocities: ", jointvel, " Abs sum: ", np.sum(np.absolute(jointvel))
         print "Distance to cube: ", distanceToCube
 
         # trigger next step and wait for communication time
         vrep.simxSynchronousTrigger(clientID)
         vrep.simxGetPingTime(clientID)
 
+
+
     # obtain performance metrics
     inputInts = []
     inputFloats = []
     inputStrings = []
     inputBuffer = bytearray()
-    err, minDistStep, minDist, retStrings, retBuffer = vrep.simxCallScriptFunction(clientID, 'Mico',
-                                                                                   vrep.sim_scripttype_childscript,
-                                                                                   'performanceMetrics', inputInts,
-                                                                                   inputFloats, inputStrings,
-                                                                                   inputBuffer,
-                                                                                   vrep.simx_opmode_blocking)
+    err, minDistStep, minDist, _, _ = vrep.simxCallScriptFunction(clientID, 'Mico',
+                                                                  vrep.sim_scripttype_childscript,
+                                                                  'performanceMetrics', inputInts,
+                                                                  inputFloats, inputStrings,
+                                                                  inputBuffer, vrep.simx_opmode_blocking)
 
     if res == vrep.simx_return_ok:
         #print "Min distance steps: ", minDistStep
         #print "Min distance: ", minDist
         print "Total episodes: ", len(minDist)
         print "Average min distance: ", np.mean(minDist)
-    ## other performance metrics such as success % can be defined (i.e. % reaching certain min threshold)
-
+    # other performance metrics such as success % can be defined (i.e. % reaching certain min threshold)
 
     # stop the simulation:
     vrep.simxStopSimulation(clientID,vrep.simx_opmode_blocking)
@@ -142,8 +146,9 @@ if clientID!=-1:
     # Now close the connection to V-REP:
     vrep.simxFinish(clientID)
 
-    # delete model and close h5py file
+    # delete model
     del model
+
 else:
     print ('Failed connecting to remote API server')
 print ('Program ended')

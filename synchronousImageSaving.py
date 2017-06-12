@@ -49,11 +49,11 @@ if clientID!=-1:
     print resolution
 
     # Initialize data file
-    filename = "datasets/100iterations100steps64res_unitJointVel_validation.hdf5"
+    filename = "datasets/200iter100steps64res.hdf5"
     f = h5py.File(filename, "w")
-    numberOfIterations = 10
+    numberOfIterations = 200
     iterationCounter = 0
-    numberOfSteps = 100  # number of steps per epoch
+    numberOfSteps = 100  # number of steps per iteration
     totalDatapoints = numberOfIterations * numberOfSteps
     sizeOfImage = resolution[0] * resolution[1] * 3  # number of pixels multiplied by 3 channels (RGB)
     dset1 = f.create_dataset("images", (totalDatapoints, sizeOfImage), dtype="uint")
@@ -104,7 +104,7 @@ if clientID!=-1:
             abs_sum = np.sum(np.absolute(jointvel))
             if abs_sum==0:
                 dset3[k * numberOfSteps + i] = np.zeros(6)
-            else:
+            else: # abs sum norm
                 dset3[k * numberOfSteps + i] = jointvel/abs_sum/10
 
         # set final velocity to zeros
