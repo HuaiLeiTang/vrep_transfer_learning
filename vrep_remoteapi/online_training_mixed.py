@@ -119,17 +119,18 @@ def train(load_model_path, save_model_path, number_training_steps,
         y_batch[current_online_batch] = ik_jointvel[0]
         current_online_batch += 1
 
-        if current_online_batch==online_batchsize:
+        if current_online_batch == online_batchsize:
             # Step counter
             print "Training step: ", step_counter
             step_counter += 1
 
             # Random sample from dataset
-            indices = random.sample(range(int(datapoints)), int(data_images_batchsize))
-            indices = np.sort(indices)
-            indices = list(indices)
-            x_batch[online_batchsize:] = x[indices]
-            y_batch[online_batchsize:] = y[indices]
+            if ratio > 0:
+                indices = random.sample(range(int(datapoints)), int(data_images_batchsize))
+                indices = np.sort(indices)
+                indices = list(indices)
+                x_batch[online_batchsize:] = x[indices]
+                y_batch[online_batchsize:] = y[indices]
 
             # 4. Fit model
             model.fit(x_batch, y_batch,

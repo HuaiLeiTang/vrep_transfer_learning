@@ -36,7 +36,7 @@ if clientID != -1:
     vrep.simxStartSimulation(clientID, vrep.simx_opmode_oneshot)
 
     # Load model
-    model = load_model("trained_models/a1_normal_online_mixed_16_64batchsize.h5")
+    model = load_model("trained_models/a6_online_mixed_64batchsize.h5")
 
     # Get joint handles
     jhList = [-1, -1, -1, -1, -1, -1]
@@ -57,8 +57,14 @@ if clientID != -1:
     err, resolution, image = vrep.simxGetVisionSensorImage(clientID, v1, 0, vrep.simx_opmode_buffer)
 
     # Initialize distance handle
-    err, distanceHandle = vrep.simxGetDistanceHandle(clientID,"tipToCube",vrep.simx_opmode_blocking)
-    err, distanceToCube = vrep.simxReadDistance(clientID,distanceHandle,vrep.simx_opmode_streaming)
+    err, distanceToCubeHandle = vrep.simxGetDistanceHandle(clientID, "tipToCube", vrep.simx_opmode_blocking)
+    err, distanceToCube = vrep.simxReadDistance(clientID, distanceToCubeHandle, vrep.simx_opmode_streaming)
+
+    err, distanceToTargetHandle = vrep.simxGetDistanceHandle(clientID, "tipToTarget", vrep.simx_opmode_blocking)
+    err, distanceToTarget = vrep.simxReadDistance(clientID, distanceToTargetHandle, vrep.simx_opmode_streaming)
+
+    # numpy print options
+    np.set_printoptions(precision=5)
 
     # Step while IK movement has not begun
     returnCode, signalValue = vrep.simxGetIntegerSignal(clientID,"ikstart",vrep.simx_opmode_streaming)
@@ -69,7 +75,7 @@ if clientID != -1:
 
     # Iterate over total steps desired
     current_episode = 0
-    total_episodes = 20
+    total_episodes = 500
     step_counter = 0
     while current_episode < total_episodes+1:
         # obtain current episode
@@ -77,12 +83,14 @@ if clientID != -1:
         inputFloats = []
         inputStrings = []
         inputBuffer = bytearray()
-        err, episode_table, _, _, _ = vrep.simxCallScriptFunction(clientID, 'Mico',
-                                                                  vrep.sim_scripttype_childscript,
-                                                                    'episodeCount', inputInts,
-                                                                  inputFloats, inputStrings,
-                                                                  inputBuffer, vrep.simx_opmode_blocking)
-        if episode_table[0]>current_episode:
+        episode_table = []
+        while len(episode_table)==0:
+            err, episode_table, _, _, _ = vrep.simxCallScriptFunction(clientID, 'Mico',
+                                                                      vrep.sim_scripttype_childscript,
+                                                                        'episodeCount', inputInts,
+                                                                      inputFloats, inputStrings,
+                                                                      inputBuffer, vrep.simx_opmode_blocking)
+        if episode_table[0] > current_episode:
             step_counter = 0
             print "Episode: ", episode_table[0]
         current_episode = episode_table[0]
@@ -108,13 +116,14 @@ if clientID != -1:
             jointpos[j] = jp
             err = vrep.simxSetJointPosition(clientID, jhList[j], jointpos[j] + jointvel[j], vrep.simx_opmode_oneshot)
 
-        # Obtain distance to cube
-        err, distanceToCube = vrep.simxReadDistance(clientID, distanceHandle, vrep.simx_opmode_buffer)
+        # Obtain distance
+        err, distanceToCube = vrep.simxReadDistance(clientID, distanceToCubeHandle, vrep.simx_opmode_buffer)
+        err, distanceToTarget = vrep.simxReadDistance(clientID, distanceToTargetHandle, vrep.simx_opmode_buffer)
 
         # Print statements
-        print "Step: ", step_counter
-        print "Joint velocities: ", jointvel, " Abs sum: ", np.sum(np.absolute(jointvel))
-        print "Distance to cube: ", distanceToCube
+        # print "Step: ", step_counter
+        # print "Joint velocities: ", jointvel, " Abs sum: %.3f" % np.sum(np.absolute(jointvel))
+        # print "Distance to cube: %.3f" % distanceToCube, ", Distance to target: %.3f" % distanceToTarget
 
         # trigger next step and wait for communication time
         vrep.simxSynchronousTrigger(clientID)
@@ -134,10 +143,11 @@ if clientID != -1:
                                                                   inputBuffer, vrep.simx_opmode_blocking)
 
     if res == vrep.simx_return_ok:
-        #print "Min distance steps: ", minDistStep
-        #print "Min distance: ", minDist
+        print "Min distance: ", minDist
+        minThreshold = 0.2
+        print "Success rate: ", 1.0*np.sum(np.array(minDist) <= minThreshold)/len(minDist)
         print "Total episodes: ", len(minDist)
-        print "Average min distance: ", np.mean(minDist)
+        print "Average min distance: %.3f" % np.mean(minDist)
     # other performance metrics such as success % can be defined (i.e. % reaching certain min threshold)
 
     # stop the simulation:

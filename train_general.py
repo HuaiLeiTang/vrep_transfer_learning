@@ -1,10 +1,10 @@
 import h5py
 import numpy as np
-import nn_architectures.architecture2 as nn
+import nn_architectures.architecture6 as nn
 
 batch_size = 128
 num_joints = 6
-epochs = 30
+epochs = 5
 
 train_path = "datasets/200iter100steps64res.hdf5"
 test_path = "datasets/100iterations100steps64res_unitJointVel_validation.hdf5"
@@ -34,4 +34,4 @@ model.fit(x_train=x_train, y_train=y_train,
           x_test=x_test, y_test=y_test,
           batch_size=batch_size, epochs=epochs)
 model.plot()
-model.save("trained_models/a2_normal30epochs.h5", epochs)
+model.save("trained_models/a6.h5", epochs)

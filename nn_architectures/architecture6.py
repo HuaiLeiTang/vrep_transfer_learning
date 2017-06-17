@@ -1,31 +1,36 @@
-# Architecture 2: 3 Conv Layers, 16 filters each, RELU activation,
-#                 1 FC layer with dropout=0.5
+# Architecture 6: WORKS DECENTLY!
 
 import h5py
 import matplotlib.pyplot as plt
 import keras
 from keras.regularizers import l2
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers import Dense, Dropout, Flatten, Activation, MaxPooling2D
 from keras.layers import Conv2D
 
 
 class Model:
     def __init__(self, input_shape, output_shape):
         model = Sequential()
-        model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=1,
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=2,
                          padding='same', input_shape=input_shape))
         model.add(Activation('relu'))
-        model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=1,
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=2,
                          padding='same', input_shape=input_shape))
         model.add(Activation('relu'))
-        model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=1,
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        model.add(Conv2D(filters=128, kernel_size=(3, 3), strides=2,
                          padding='same', input_shape=input_shape))
+        model.add(Activation('relu'))
+        model.add(Conv2D(filters=256, kernel_size=(3, 3), strides=2,
+                         padding='same', input_shape=input_shape))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Activation('relu'))
         model.add(Flatten())
-        model.add(Dense(512, kernel_regularizer=l2(0.01)))
+        model.add(Dense(512))
         model.add(Activation('relu'))
-        model.add(Dropout(0.5))
+        model.add(Dense(256))
+        model.add(Activation('relu'))
         model.add(Dense(output_shape))
         self.model = model
         self.optimizer = keras.optimizers.adam(lr=0.001)

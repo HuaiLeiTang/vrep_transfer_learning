@@ -17,3 +17,15 @@ ax.scatter(data2[:,0],data2[:,1],s=25,marker="o")
 plt.ylim(-5,5)
 plt.xlim(-5,5)
 
+#
+N = 25
+data1 = np.random.normal(0, 1, (N, 2))
+data2 = data1 + 0
+data2[:,1] += 10
+plt1 = plt.scatter(data1[:,0],data1[:,1],marker="+")
+plt2 = plt.scatter(data2[:,0],data2[:,1],marker="o")
+plt.legend((plt1,plt2),
+           ("Domain 1", "Domain 2"))
+
+plt.xlim(-5,5)
+plt.ylim(-5,15)
