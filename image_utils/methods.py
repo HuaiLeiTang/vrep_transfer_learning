@@ -1,3 +1,4 @@
+# All functions assume to be working with a float32 format image with range [0,1]
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage import exposure
@@ -18,17 +19,17 @@ def convert_grayscale(images):
     images = images.mean(axis=-1)
     return images
 
-def adjust_gamma(images, gamma):
+def adjust_gamma(images, gamma=1):
     # gamma greater than 1 leads to darker images
     # gamma less than 1 leads to brighter images
     return exposure.adjust_gamma(images, gamma=gamma)
 
 def display(img):
     # origin lower flips the image from top to bottom (mirror around x-axis)
-    plt.imshow(img, origin='lower')
+    return plt.imshow(img, origin='lower')
 
 def display_grayscale(img):
-    plt.imshow(img, origin='lower', cmap=plt.cm.gray)
+    return plt.imshow(img, origin='lower', cmap=plt.cm.gray)
 
 
 def tint_images(images, filter=[1, 1, 1]):
@@ -57,6 +58,14 @@ def frangi_filter(image):
 def hessian_filter(image):
     return hessian(image)
 
+def display_2images(image1, image2):
+    fig = plt.figure()
+    a = fig.add_subplot(1,2,1)
+    a = display(image1)
+    b = fig.add_subplot(1,2,2)
+    b = display(image2)
+    return
+
 # Test
 if __name__ == '__main__':
     print 'Testing image_utils/methods.py'
@@ -73,6 +82,10 @@ if __name__ == '__main__':
     print 'Displaying gamma=2 corrected image'
     gamma_images = adjust_gamma(images,2)
     display(gamma_images[0])
+    plt.show()
+
+    print 'Displaying 2 images'
+    display_2images(images[0], gamma_images[0])
     plt.show()
 
     print 'Displaying yellow tinted image'

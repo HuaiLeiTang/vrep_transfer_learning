@@ -1,4 +1,4 @@
-# Architecture 6: WORKS DECENTLY!
+# Architecture 6 with mmd as a loss
 
 import h5py
 import matplotlib.pyplot as plt

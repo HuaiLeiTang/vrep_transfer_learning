@@ -3,7 +3,10 @@ import keras.backend as K
 import numpy as np
 
 def empty(y_true,y_pred):
-    return K.constant(0)
+    return T.constant(0)
+
+def empty2(y_true,y_pred):
+    return T.mean(y_pred) - T.mean(y_pred)
 
 def rbf_mmd2_features(X,sigma=1,biased=True):
     def loss(y_true,Y):
