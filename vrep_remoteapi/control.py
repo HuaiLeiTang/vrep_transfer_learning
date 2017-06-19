@@ -4,7 +4,7 @@ from vrep_utils import VrepConnection
 from keras.models import load_model
 from image_utils.methods import *
 
-im_function = False
+im_function = True
 
 def control(load_model_path, total_episodes=10):
     # Initialize connection
@@ -115,7 +115,7 @@ def control(load_model_path, total_episodes=10):
 
         # Print statements
         # print "Step: ", step_counter
-        # print "Joint velocities: ", jointvel, " Abs sum: %.3f" % np.sum(np.absolute(jointvel))
+        print "Joint velocities: ", jointvel, " Abs sum: %.3f" % np.sum(np.absolute(jointvel))
         # print "Distance to cube: %.3f" % distanceToCube, ", Distance to target: %.3f" % distanceToTarget
 
         # trigger next step and wait for communication time
@@ -151,3 +151,6 @@ def control(load_model_path, total_episodes=10):
     del model
 
     return
+
+if __name__=="__main__":
+    control("../models/a6_source.h5")

@@ -108,7 +108,7 @@ history = source_model.fit(source_train, [source_train_labels, placeholder_label
                            shuffle="batch")
 
 # save model and history
-model_path = 'trained_models/a6_source.h5'
+model_path = 'models/a6_source.h5'
 source_model.save(model_path)
 print("Saving model to " + model_path)
 saved_model = h5py.File(model_path,"r+")
@@ -141,7 +141,7 @@ saved_model.close()
 ## If labelled, use target task loss and MMD
 ## else if unlabelled, use MMD only
 
-target_model = load_model('trained_models/source_model.h5',custom_objects={'empty': empty})
+target_model = load_model('models/source_model.h5',custom_objects={'empty': empty})
 layer_index = 15 #layer index has to be manually specified
 
 # sample random indices
@@ -175,6 +175,6 @@ target_model.fit(target_train_unlabelled, [task_placeholder_labels, placeholder_
                                   [test_placeholder_labels, placeholder_labels2]),
                  shuffle='batch')
 
-target_model_path = "trained_models/a6_target_5pLabelled_5pUnlabelled.h5"
+target_model_path = "models/a6_target_5pLabelled_5pUnlabelled.h5"
 target_model.save(target_model_path)
 ### Step 2 End ###

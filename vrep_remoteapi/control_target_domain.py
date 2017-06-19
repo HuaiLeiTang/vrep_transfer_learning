@@ -3,6 +3,7 @@ import keras
 from vrep_utils import VrepConnection
 from keras.models import load_model
 from image_utils.methods import *
+from custom_loss_functions.empty import *
 
 im_function = True
 
@@ -13,7 +14,8 @@ def control(load_model_path, total_episodes=10):
     connection.start()
 
     # Load keras model
-    model = load_model(load_model_path)
+    model = load_model(load_model_path, custom_objects={'empty': empty,
+                                                        'mmd2_rbf_quad': empty})
 
     # Initialize adam optimizer
     adam = keras.optimizers.adam(lr=0.001)
@@ -99,8 +101,7 @@ def control(load_model_path, total_episodes=10):
 
 
         # 2. Pass into neural network to get joint velocities
-        jointvel = model.predict(img, batch_size=1)[
-            0]  # output is a 2D array of 1X6, access the first variable to get vector
+        jointvel = model.predict(img, batch_size=1)[0][0]  # output is a 2D array of 1X6, access the first variable to get vector
         stepsize = 1
         jointvel *= stepsize
 
@@ -116,7 +117,7 @@ def control(load_model_path, total_episodes=10):
 
         # Print statements
         # print "Step: ", step_counter
-        # print "Joint velocities: ", jointvel, " Abs sum: %.3f" % np.sum(np.absolute(jointvel))
+        print "Joint velocities: ", jointvel, " Abs sum: %.3f" % np.sum(np.absolute(jointvel))
         # print "Distance to cube: %.3f" % distanceToCube, ", Distance to target: %.3f" % distanceToTarget
 
         # trigger next step and wait for communication time
@@ -152,3 +153,10 @@ def control(load_model_path, total_episodes=10):
     del model
 
     return
+
+if __name__=="__main__":
+    control("../models/a6_target_full_labelled.h5")
+    #control("../models/a6_target_5pLabelled_5pUnlabelled.h5")
+    #control("../models/a6_target_10pLabelled.h5")
+    #control("../models/a6_target_10pUnlabelled.h5")
+    #control("../models/a6_source.h5")
