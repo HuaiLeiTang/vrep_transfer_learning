@@ -1,7 +1,7 @@
-import keras_utils as ku
-import h5py_utils as hu
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+from archive import h5py_utils as hu, keras_utils as ku
 
 # load train and test sets
 trainset_name = "datasets/100iterations100steps64res_unitJointVel.hdf5"
@@ -25,7 +25,7 @@ x_train /= 255
 x_test /= 255
 
 # load your model
-model_path = "trained_models/elu_noMaxPool_20epochs.h5"
+model_path = "models/elu_noMaxPool_20epochs.h5"
 model = ku.load(model_path)
 
 # Some hyperparameters
@@ -40,7 +40,7 @@ history = model.fit(x_train, y_train,
                     shuffle="batch")
 
 # save model and history
-model_path = 'trained_models/elu_noMaxPool_21_50.h5'
+model_path = 'models/elu_noMaxPool_21_50.h5'
 model.save(model_path)
 saved_model = hu.open_rplus_mode(model_path)
 for key in history.history.keys():

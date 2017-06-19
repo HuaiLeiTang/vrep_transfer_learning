@@ -7,13 +7,20 @@ from keras.layers.advanced_activations import ELU
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
-import fn
 from image_utils.methods import *
 import random
+from custom_loss_functions.empty import *
+from custom_loss_functions.mmd import *
+import keras.backend as K
+
+def get_activations(model, layer, X_batch):
+    get_activations = K.function([model.layers[0].input, K.learning_phase()], model.layers[layer].output)
+    activations = get_activations([X_batch,0])
+    return activations
 
 batch_size = 128
 num_joints = 6
-epochs = 1
+epochs = 5
 data_augmentation = False
 
 # load train and test sets
@@ -88,7 +95,7 @@ adam = keras.optimizers.adam(lr=0.001)
 
 source_model = Model(inputs=inputs, outputs=[predictions, feature_layer])
 source_model.compile(loss={'predictions': 'mean_squared_error',
-                           'feature_layer': fn.empty},
+                           'feature_layer': empty},
                      optimizer=adam,
                      loss_weights=[1,1])
 
@@ -101,7 +108,7 @@ history = source_model.fit(source_train, [source_train_labels, placeholder_label
                            shuffle="batch")
 
 # save model and history
-model_path = 'trained_models/source_model.h5'
+model_path = 'trained_models/a6_source.h5'
 source_model.save(model_path)
 print("Saving model to " + model_path)
 saved_model = h5py.File(model_path,"r+")
@@ -133,23 +140,18 @@ saved_model.close()
 ## Step 2: Load model trained in step 1 to be used as initial start point for training on target domain
 ## If labelled, use target task loss and MMD
 ## else if unlabelled, use MMD only
-#target_model = load_model(model_path)
-target_model = load_model('trained_models/source_model.h5',custom_objects={'empty': fn.empty})
-layer_index = 15 #layer index has to be manually specified
 
-# these two lines consumes quite a bit of memory
-# and also it takes pretty long to compute them
-#target_feature_layer = fn.get_activations(target_model, layer_index, target_train)
+target_model = load_model('trained_models/source_model.h5',custom_objects={'empty': empty})
+layer_index = 15 #layer index has to be manually specified
 
 # sample random indices
 sample_size = 1024
 sample_indices = sorted(random.sample(range(source_train_datapoints), 1024))
-source_feature_layer = fn.get_activations(source_model, layer_index, source_train[sample_indices])
+source_feature_layer = get_activations(source_model, layer_index, source_train[sample_indices])
 
-# only difference is the loss in the compile stage
-# For labelled target data
+# Train on labelled target data
 target_model.compile(loss={'predictions': 'mean_squared_error',
-                           'feature_layer':fn.rbf_mmd2_features(source_feature_layer)},
+                           'feature_layer': mmd2_rbf_X_quad(source_feature_layer)},
                      optimizer=adam)
 placeholder_labels = np.zeros((target_train_labelled_count, 256))
 placeholder_labels2 = np.zeros((test_datapoints, 256))
@@ -160,17 +162,19 @@ target_model.fit(target_train_labelled, [target_train_labels, placeholder_labels
                                   [target_test_labels, placeholder_labels2]),
                  shuffle='batch')
 
-target_model.compile(loss={'predictions': fn.empty2,
-                           'feature_layer': fn.rbf_mmd2_features(source_feature_layer)},
+# Train on unlabelled target data
+target_model.compile(loss={'predictions': empty,
+                           'feature_layer': mmd2_rbf_X_quad(source_feature_layer)},
                      optimizer=adam)
 task_placeholder_labels = np.zeros((1000,6))
 test_placeholder_labels = np.zeros((1000,6))
-target_model.fit(target_train_labelled, [task_placeholder_labels, placeholder_labels],
+target_model.fit(target_train_unlabelled, [task_placeholder_labels, placeholder_labels],
                  batch_size=batch_size,
                  epochs=epochs,
                  validation_data=(target_test,
                                   [test_placeholder_labels, placeholder_labels2]),
                  shuffle='batch')
 
-
+target_model_path = "trained_models/a6_target_5pLabelled_5pUnlabelled.h5"
+target_model.save(target_model_path)
 ### Step 2 End ###

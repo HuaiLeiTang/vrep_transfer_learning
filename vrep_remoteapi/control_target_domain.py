@@ -4,7 +4,7 @@ from vrep_utils import VrepConnection
 from keras.models import load_model
 from image_utils.methods import *
 
-im_function = False
+im_function = True
 
 def control(load_model_path, total_episodes=10):
     # Initialize connection
@@ -99,7 +99,8 @@ def control(load_model_path, total_episodes=10):
 
 
         # 2. Pass into neural network to get joint velocities
-        jointvel = model.predict(img, batch_size=1)[0]  # output is a 2D array of 1X6, access the first variable to get vector
+        jointvel = model.predict(img, batch_size=1)[
+            0]  # output is a 2D array of 1X6, access the first variable to get vector
         stepsize = 1
         jointvel *= stepsize
 
